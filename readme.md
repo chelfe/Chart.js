@@ -2,6 +2,7 @@ Chart.js
 =======
 *Simple HTML5 Charts using the canvas element* [chartjs.org](http://www.chartjs.org)
 
+<<<<<<< HEAD
 Quick FYI
 -------
 I'm currently working on a big refactor of the library into a more object oriented structure. 
@@ -32,6 +33,13 @@ Right now I've wrote 80% of the core, and refactored the Doughnut and Pie charts
 I know PR and issues are racking up in the repo, and I'll do my best to sort them ASAP, but I think this update is really important for creating flexibility and extensibility to cater for these new features in an elegant way, rather than introducing scope creep into an architecture that wasn't designed to deliver this extra functionality.
 
 Big thanks for all the support - it's been totally overwhelming.
+=======
+Further plans
+-------
+* Tooltips (see Branch [tooltips](https://github.com/Regaddi/Chart.js/tree/tooltips))
+* Label positioning (inside, outside, legend)
+* code refactoring for more object-oriented programming style and better extendability
+>>>>>>> 757fe6a0fa6dd36a7db582c0daefab12dc1ead2e
 
 Documentation
 -------
