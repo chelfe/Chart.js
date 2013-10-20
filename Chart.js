@@ -287,6 +287,157 @@ window.Chart = function(context, options){
 		}
 	}
 
+    this.dataAreas = [],
+    defaults = {
+        dataAreas: {
+            background: 'rgba(0,0,0,0.6)',
+            fontFamily: "'Arial'",
+            fontStyle: "normal",
+            fontColor: 'white',
+            fontSize: '12px',
+            labelTemplate: '<%=label%>: <%=value%>',
+            padding: {
+                top: 10,
+                right: 10,
+                bottom: 10,
+                left: 10
+            },
+            offset: {
+                left: 0,
+                top: 0
+            },
+            border: {
+                width: 0,
+                color: '#000'
+            },
+            showHighlight: true,
+            highlight: {
+                stroke: {
+                    width: 1,
+                    color: 'rgba(120,120,120,0.25)'
+                },
+                fill: 'rgba(255,255,255,0.25)'
+            },
+            highlightBar: false,
+            onSelectData: null
+        }
+    },
+    options = (options) ? mergeChartConfig(defaults, options) : defaults;
+
+    function registerDataArea(ctx, areaObj, data, type, selectAction) {
+        chart.dataAreas.push(new DataArea(
+			ctx,
+			areaObj,
+			data,
+			type,
+            selectAction
+		));
+	}
+
+    var DataArea = function (ctx, areaObj, data, type, selectAction) {
+	    this.ctx = ctx;
+	    this.areaObj = areaObj;
+	    this.data = data;
+	    this.savedState = null;
+	    this.highlightState = null;
+	    this.x = null;
+	    this.y = null;
+	    this.selectAction = selectAction;
+
+	    this.inRange = function (x, y) {
+	        if (this.areaObj.type) {
+	            switch (this.areaObj.type) {
+	                case 'rect':
+	                    return (x >= this.areaObj.x && x <= this.areaObj.x + this.areaObj.width) &&
+						   (y >= this.areaObj.y && y <= this.areaObj.y + this.areaObj.height);
+	                    break;
+	                case 'circle':
+	                    return ((Math.pow(x - this.areaObj.x, 2) + Math.pow(y - this.areaObj.y, 2)) < Math.pow(this.areaObj.r, 2));
+	                    break;
+	                case 'shape':
+	                    var poly = this.areaObj.points;
+	                    for (var c = false, i = -1, l = poly.length, j = l - 1; ++i < l; j = i)
+	                        ((poly[i].y <= y && y < poly[j].y) || (poly[j].y <= y && y < poly[i].y))
+							&& (x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+							&& (c = !c);
+	                    return c;
+	                    break;
+	            }
+	        }
+	    }
+
+	    this.render = function (x, y) {
+	        if (this.savedState == null) {
+	            this.ctx.putImageData(chart.savedState, 0, 0);
+	            this.savedState = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+	        }
+	        this.ctx.putImageData(this.savedState, 0, 0);
+	        if (options.dataAreas.showHighlight) {
+	            if (this.highlightState == null) {
+	                this.ctx.strokeStyle = options.dataAreas.highlight.stroke.color;
+	                this.ctx.lineWidth = options.dataAreas.highlight.stroke.width;
+	                this.ctx.fillStyle = options.dataAreas.highlight.fill;
+	                switch (this.areaObj.type) {
+	                    case 'rect':
+	                        if (options.dataAreas.highlightBar) {
+
+	                            var x = this.areaObj.x;
+	                            var yMin = this.areaObj.y;
+	                            var width = this.areaObj.width;
+	                            var mergeHeight = 0;
+
+	                            for(id in chart.dataAreas) {
+	                                var dataArea = chart.dataAreas[id];
+	                                if(dataArea.data.dataId === this.data.dataId) {
+	                                    var areaObj = dataArea.areaObj;
+	                                    
+	                                    if(areaObj.y < yMin) {
+	                                        yMin = areaObj.y;
+	                                    }
+
+	                                    mergeHeight += areaObj.height;
+	                                }
+	                            }
+
+	                            this.ctx.strokeRect(x, yMin, width, mergeHeight);
+	                            this.ctx.fillStyle = options.dataAreas.highlight.fill;
+	                            this.ctx.fillRect(x, yMin, width, mergeHeight);
+	                        } else {
+	                            this.ctx.strokeRect(this.areaObj.x, this.areaObj.y, this.areaObj.width, this.areaObj.height);
+	                            this.ctx.fillStyle = options.dataAreas.highlight.fill;
+	                            this.ctx.fillRect(this.areaObj.x, this.areaObj.y, this.areaObj.width, this.areaObj.height);
+	                        }
+	                        break;
+	                    case 'circle':
+	                        this.ctx.beginPath();
+	                        this.ctx.arc(this.areaObj.x, this.areaObj.y, this.areaObj.r, 0, 2 * Math.PI, false);
+	                        this.ctx.stroke();
+	                        this.ctx.fill();
+	                        break;
+	                    case 'shape':
+	                        this.ctx.beginPath();
+	                        this.ctx.moveTo(this.areaObj.points[0].x, this.areaObj.points[0].y);
+	                        for (var p in this.areaObj.points) {
+	                            this.ctx.lineTo(this.areaObj.points[p].x, this.areaObj.points[p].y);
+	                        }
+	                        this.ctx.stroke();
+	                        this.ctx.fill();
+	                        break;
+	                }
+	                this.highlightState = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+	            } else {
+	                this.ctx.putImageData(this.highlightState, 0, 0);
+	            }
+	        }
+	    }
+
+	    this.select = function () {
+	        if (this.selectAction !== undefined && this.selectAction !== null) {
+	            this.selectAction(this);
+	        }
+	    }
+	}
+
 	//Variables global to the chart
 	var width = context.canvas.width,
 		height = context.canvas.height;
@@ -331,26 +482,54 @@ window.Chart = function(context, options){
 		}
 	}
 
+	function selectDataEventHandler(e) {
+	    if (chart.dataAreas.length > 0) {
+	        chart.savedState = chart.savedState == null ? context.getImageData(0, 0, context.canvas.width, context.canvas.height) : chart.savedState;
+	        var rendered = 0;
+	        for (var i in chart.dataAreas) {
+	            var position = getPosition(context.canvas),
+					mx = (e.clientX) - position.x,
+					my = (e.clientY) - position.y;
+	            if (chart.dataAreas[i].inRange(mx, my)) {
+	                chart.dataAreas[i].render(mx, my);
+	                chart.dataAreas[i].select();
+
+	                rendered++;
+	                break;
+	            }
+	        }
+	        if (rendered == 0) {
+	            context.putImageData(chart.savedState, 0, 0);
+	        }
+	    }
+	}
+
 	if(window.Touch) {
 		context.canvas.ontouchstart = function(e) {
 			e.clientX = e.targetTouches[0].clientX;
 			e.clientY = e.targetTouches[0].clientY;
 			tooltipEventHandler(e);
+			selectDataEventHandler(e);
 		}
 		context.canvas.ontouchmove = function(e) {
 			e.clientX = e.targetTouches[0].clientX;
 			e.clientY = e.targetTouches[0].clientY;
 			tooltipEventHandler(e);
 		}
-	} else {
-		context.canvas.onmousemove = function(e) {
-			tooltipEventHandler(e);
-		}
+	} 
+	
+	context.canvas.onmousemove = function(e) {
+		tooltipEventHandler(e);
 	}
+		
 	context.canvas.onmouseout = function(e) {
 		if(chart.savedState != null) {
 			context.putImageData(chart.savedState,0,0);
 		}
+	}
+
+	context.canvas.onclick = function (e) {
+	    selectDataEventHandler(e);
 	}
 
 
@@ -558,7 +737,8 @@ window.Chart = function(context, options){
 			animationEasing : "easeOutQuart",
 			onAnimationComplete : null,
 			showTooltips : true,
-			stacked : false
+			stacked: false,
+			onSelectData: null
 		};		
 		var config = (options) ? mergeChartConfig(chart.Bar.defaults,options) : chart.Bar.defaults;
 		
@@ -1393,10 +1573,19 @@ window.Chart = function(context, options){
 					if(animPc >= 1 && config.showTooltips) {
 						// register tooltips
 						var x = barOffset,
-							height = calculateOffset(data.datasets[i].data[j],calculatedScale,scaleHop),
-							y = xAxisPosY-height,
+							height = barHeight,
+							y = xAxisPosY - yOffset[j] - barHeight,
 							width = barWidth;
-						registerTooltip(ctx,{type:'rect',x:x,y:y,width:width,height:height},{label:data.labels[j],value:data.datasets[i].data[j]},'Bar');
+						registerTooltip(ctx, { type: 'rect', x: x, y: y, width: width, height: height }, { label: data.labels[j], value: data.datasets[i].data[j], datasetId: i, dataId: j }, 'Bar');
+					}
+
+					if (animPc >= 1 && config.onSelectData !== undefined && config.onSelectData !== null) {
+					    // register data areas
+					    var x = barOffset,
+							height = barHeight,
+							y = xAxisPosY - yOffset[j] - barHeight,
+							width = barWidth;
+					    registerDataArea(ctx, { type: 'rect', x: x, y: y, width: width, height: height }, { label: data.labels[j], value: data.datasets[i].data[j], datasetId: i, dataId: j }, 'Bar', config.onSelectData);
 					}
 
 					if(config.stacked){
